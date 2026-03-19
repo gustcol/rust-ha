@@ -199,7 +199,8 @@ impl RustFSTestEnvironment {
 
     /// Start RustFS server with basic configuration
     pub async fn start_rustfs_server(&mut self, extra_args: Vec<&str>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.cleanup_existing_processes().await?;
+        // Removed: cleanup_existing_processes kills all rustfs instances,
+        // breaking parallel test execution. Each test manages its own process via Drop.
 
         let mut args = vec![
             "--address",
@@ -219,7 +220,7 @@ impl RustFSTestEnvironment {
         info!("Starting RustFS server with args: {:?}", args);
 
         let binary_path = rustfs_binary_path();
-        let process = Command::new(&binary_path).args(&args).spawn()?;
+        let process = Command::new(&binary_path).args(&args).env("RUSTFS_CONSOLE_ENABLE", "false").spawn()?;
 
         self.process = Some(process);
 

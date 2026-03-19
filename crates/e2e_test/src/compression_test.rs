@@ -52,11 +52,11 @@ fn find_part_files(temp_dir: &str, bucket: &str, object_key: &str) -> Vec<PathBu
 }
 
 async fn start_rustfs_with_compression(env: &mut RustFSTestEnvironment) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    env.cleanup_existing_processes().await?;
 
     let binary_path = rustfs_binary_path();
     let process = Command::new(&binary_path)
         .env("RUSTFS_COMPRESSION_ENABLED", "true")
+        .env("RUSTFS_CONSOLE_ENABLE", "false")
         .args([
             "--address",
             &env.address,
