@@ -15,13 +15,12 @@
 use crate::bucket::bandwidth::reader::BucketOptions;
 use ratelimit::{Error as RatelimitError, Ratelimiter};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
+use std::sync::{Arc, RwLock};
 use tracing::warn;
 
 #[derive(Clone)]
 pub struct BucketThrottle {
-    limiter: Arc<Mutex<Ratelimiter>>,
+    limiter: Arc<Ratelimiter>,
     pub node_bandwidth_per_sec: i64,
 }
 
@@ -29,44 +28,43 @@ impl BucketThrottle {
     fn new(node_bandwidth_per_sec: i64) -> Result<Self, RatelimitError> {
         let node_bandwidth_per_sec = node_bandwidth_per_sec.max(1);
         let amount = node_bandwidth_per_sec as u64;
-        let limiter_inner = Ratelimiter::builder(amount, Duration::from_secs(1))
+        let limiter_inner = Ratelimiter::builder(amount)
             .max_tokens(amount)
             .build()?;
         Ok(Self {
-            limiter: Arc::new(Mutex::new(limiter_inner)),
+            limiter: Arc::new(limiter_inner),
             node_bandwidth_per_sec,
         })
     }
 
     pub fn burst(&self) -> u64 {
-        self.limiter.lock().unwrap_or_else(|e| e.into_inner()).max_tokens()
+        self.limiter.max_tokens()
     }
 
-    /// The ratelimit crate (0.10.0) does not provide a bulk token consumption API.
-    /// try_wait() first to consume 1 token AND trigger the internal refill
-    /// mechanism (tokens are only refilled during try_wait/wait calls).
-    /// directly adjust available tokens via set_available() to consume the remaining amount.
+    /// Attempt to consume up to `n` tokens from the bucket without blocking.
+    ///
+    /// Returns `(deficit, rate, consumed)` where:
+    /// - `deficit` is how many tokens could not be consumed (demand exceeded supply),
+    /// - `rate` is the configured token rate in tokens/second,
+    /// - `consumed` is how many tokens were successfully taken.
+    ///
+    /// Uses the lock-free `try_wait()` API from ratelimit 1.0+, which triggers
+    /// refill on each call. We loop non-blocking up to `n` times to consume as
+    /// many tokens as are currently available.
     pub(crate) fn consume(&self, n: u64) -> (u64, f64, u64) {
-        let guard = self.limiter.lock().unwrap_or_else(|e| {
-            warn!("bucket throttle mutex poisoned, recovering");
-            e.into_inner()
-        });
         if n == 0 {
-            return (0, guard.rate(), 0);
+            return (0, self.limiter.rate() as f64, 0);
         }
         let mut consumed = 0u64;
-        if guard.try_wait().is_ok() {
-            consumed = 1;
-        }
-        let available = guard.available();
-        let to_consume = n - consumed;
-        let batch = to_consume.min(available);
-        if batch > 0 {
-            let _ = guard.set_available(available - batch);
-            consumed += batch;
+        for _ in 0..n {
+            if self.limiter.try_wait().is_ok() {
+                consumed += 1;
+            } else {
+                break;
+            }
         }
         let deficit = n.saturating_sub(consumed);
-        let rate = guard.rate();
+        let rate = self.limiter.rate() as f64;
         (deficit, rate, consumed)
     }
 }

@@ -67,7 +67,7 @@ impl From<DataFusionError> for QueryError {
 
             v => Self::Datafusion {
                 source: Box::new(v),
-                location: Default::default(),
+                location: snafu::location!(),
                 backtrace: Backtrace::capture(),
             },
         }
