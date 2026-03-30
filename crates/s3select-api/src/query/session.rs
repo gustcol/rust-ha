@@ -18,7 +18,7 @@ use datafusion::{
     execution::{SessionStateBuilder, context::SessionState, runtime_env::RuntimeEnvBuilder},
     prelude::SessionContext,
 };
-use object_store::{ObjectStore, memory::InMemory, path::Path};
+use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory, path::Path};
 use std::sync::Arc;
 use tracing::error;
 
@@ -95,7 +95,7 @@ impl SessionCtxFactory {
             };
 
             let path = Path::from(context.input.key.clone());
-            store.put(&path, data_bytes.into()).await.map_err(|e| {
+            store.put(&path, bytes::Bytes::from_static(data_bytes).into()).await.map_err(|e: object_store::Error| {
                 error!("put data into memory failed: {}", e.to_string());
                 QueryError::StoreError { e: e.to_string() }
             })?;
