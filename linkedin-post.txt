@@ -1,0 +1,28 @@
+I forked RustFS — an S3-compatible object storage written in Rust — and made it production-ready for high availability.
+
+The original project lacked what I needed: production metrics, flexible Helm charts, multi-arch support, and a clear HA strategy for read-heavy workloads. So I forked it and built that layer myself.
+
+What I changed:
+
+- Fixed unbounded Prometheus metrics that would OOM at scale
+- Zero-allocation HTTP method mapping on the hot path
+- Flexible Helm chart with dynamic volume generation, HPA, zone-aware scheduling, and startup probes
+- Hardened Dockerfile for AMD64 + ARM64
+- Full benchmark infrastructure with HAProxy and Docker Compose
+
+Then I benchmarked two HA approaches — distributed erasure-coded cluster vs read-only replicas with shared volume. The results:
+
+- 20x more throughput with read-only replicas (6,126 vs 298 req/s)
+- 179x lower P99 latency (54ms vs 9,699ms)
+- 0% error rate vs up to 2.91%
+- With HAProxy cache: ~24,000 req/s for small objects
+
+For read-dominated workloads, the simplest architecture won. No gRPC overhead, no erasure-coding reassembly — just local filesystem reads behind a load balancer.
+
+Everything is public — code, configs, scripts, Helm chart, and full benchmark results. Still testing, but the early numbers speak for themselves.
+
+The project is open for contributions. If you're into Rust, object storage, or infrastructure, feel free to fork, open issues, or submit PRs. There's a contributing guide in the repo with formatting and CI requirements to keep things consistent.
+
+GitHub: https://github.com/gustcol/rustfs-ha
+
+#ObjectStorage #Rust #HighAvailability #Benchmarking #Infrastructure #S3 #DevOps #OpenSource

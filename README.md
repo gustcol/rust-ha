@@ -262,6 +262,12 @@ For full Kubernetes scaling documentation, see [docs/SCALING.md](docs/SCALING.md
 - **Object sizes:** 1KB, 10KB, 100KB, 1MB
 - **Concurrency levels:** 100, 500
 
+## Contributing
+
+Contributions are welcome. If you're into Rust, object storage, or infrastructure, feel free to fork, open issues, or submit PRs.
+
+Please read the [Contributing Guide](CONTRIBUTING.md) before submitting changes — it covers formatting, linting, and CI requirements.
+
 ## Based On
 
 This project is built on [RustFS](https://github.com/rustfs/rustfs), a high-performance, S3-compatible object storage system written in Rust. Licensed under Apache 2.0.
